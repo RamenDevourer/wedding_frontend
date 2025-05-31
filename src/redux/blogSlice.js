@@ -26,14 +26,14 @@ export const blogApiSlice = createApi({
       credentials: "include",
     });
     return rawBaseQuery(args, api, extraOptions);
-  },
-
-  endpoints: (builder) => ({
+  },  endpoints: (builder) => ({
     // 🔓 PUBLIC
     getBlogs: builder.query({
       query: (params = {}) => {
         // Convert params object to URL query string
         const queryParams = new URLSearchParams();
+        
+        // API expects 's' for skip, 't' for take (limit)
         if (params.s !== undefined) queryParams.append('s', params.s);
         if (params.t !== undefined) queryParams.append('t', params.t);
         if (params.tag) queryParams.append('tag', params.tag);
@@ -51,10 +51,10 @@ export const blogApiSlice = createApi({
     getBlogsByTag: builder.query({ query: (tagName) => `/tag/${tagName}` }),    
     getRelatedBlogsById: builder.query({ query: (id) => `/related/${id}` }),
 
-    // 🔐 ADMIN
-    addBlog: builder.mutation({ query: (body) => ({ url: `/`, method: "POST", body }) }),
+    // 🔐 ADMIN    addBlog: builder.mutation({ query: (body) => ({ url: `/`, method: "POST", body }) }),
     updateBlog: builder.mutation({ query: ({ id, blogData }) => ({ url: `/${id}`, method: "PATCH", body: blogData }) }),
-    deleteBlog: builder.mutation({ query: (id) => ({ url: `/${id}`, method: "DELETE" }) }),    addTag: builder.mutation({ query: (body) => ({ url: `/tags`, method: "POST", body }) }),
+    deleteBlog: builder.mutation({ query: (id) => ({ url: `/${id}`, method: "DELETE" }) }),
+    addTag: builder.mutation({ query: (body) => ({ url: `/tags`, method: "POST", body }) }),
     updateTag: builder.mutation({ query: ({ id, body }) => ({ url: `/tags/${id}`, method: "PUT", body }) }),
     deleteTag: builder.mutation({ query: (body) => ({ url: `/tags`, method: "DELETE", body }) }),
     getTotalViewCount: builder.query({ query: () => `/viewCount` }),
