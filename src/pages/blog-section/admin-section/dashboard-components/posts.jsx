@@ -1,465 +1,577 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGetBlogsQuery, useDeleteBlogMutation, useGetAllTagsQuery, useUpdateBlogMutation } from '../../../../redux/blogSlice';
-// Import icons from react-icons
-import { FiPlus, FiSearch, FiFilter, FiChevronLeft, FiChevronRight } from 'react-icons/fi'; 
-import { FaCheckCircle, FaPencilAlt, FaThumbsDown, FaTrash, FaEye, FaExclamationCircle } from 'react-icons/fa';
-import { BsImage, BsStar } from 'react-icons/bs';
+import { 
+  FiPlus, FiSearch, FiFilter, FiChevronLeft, FiChevronRight, FiCalendar, FiUser 
+} from 'react-icons/fi';
+import { 
+  FaCheckCircle, FaPencilAlt, FaThumbsDown, FaTrash, FaEye, 
+  FaExclamationCircle, FaRegClock 
+} from 'react-icons/fa';
+import { BsImage, BsStarFill, BsThreeDotsVertical } from 'react-icons/bs';
+import { RiDraftLine } from 'react-icons/ri';
+import { TiArchive } from "react-icons/ti";
 
 export default function Posts() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTag, setSelectedTag] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'published', 'draft', 'all'
+  const [statusFilter, setStatusFilter] = useState('all');
   const [animate, setAnimate] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [postsPerPage, setPostsPerPage] = useState(10);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  
   // Get blogs with filters and pagination
   const { data: blogs, isLoading, isError, refetch } = useGetBlogsQuery({
-    s: (currentPage - 1) * postsPerPage, // Calculate skip based on page number
-    t: postsPerPage, // Number of items per page
+    s: (currentPage - 1) * postsPerPage,
+    t: postsPerPage,
     tag: selectedTag || undefined,
-    status: statusFilter !== 'all' ? statusFilter : undefined
+    status: statusFilter !== 'all' ? statusFilter : undefined,
+    search: searchTerm || undefined
   }, {
     refetchOnMountOrArgChange: true
   });
-  // Calculate total pages with fallbacks and protection against division by zero
+
   const totalItems = blogs?.totalCount || 0;
   const totalPages = postsPerPage > 0 ? Math.max(1, Math.ceil(totalItems / postsPerPage)) : 1;
-  
-  // Debug pagination data
-  useEffect(() => {
-    if (blogs) {
-      console.log('Blogs response:', blogs);
-      console.log('Total items:', totalItems);
-      console.log('Current page:', currentPage);
-      console.log('Items per page:', postsPerPage);
-      console.log('Total pages:', totalPages);
-    }
-  }, [blogs, totalItems, currentPage, postsPerPage, totalPages]);
   
   // Get tags for filter dropdown
   const { data: tags } = useGetAllTagsQuery();
   const [deleteBlog, { isLoading: isDeleting }] = useDeleteBlogMutation();
   const [updateBlog, { isLoading: isUpdatingStatus }] = useUpdateBlogMutation();
+  const navigate = useNavigate();
+
   useEffect(() => {
-    // Trigger animation after component mount
-    setTimeout(() => {
-      setAnimate(true);
-    }, 100);
+    setTimeout(() => setAnimate(true), 100);
   }, []);
-  // Handle pagination changes
+
   useEffect(() => {
-    // Make sure current page is valid when total pages changes
     if (totalPages > 0 && currentPage > totalPages) {
       setCurrentPage(totalPages);
     }
   }, [totalPages, currentPage]);
-  
-  // Explicitly refetch when pagination parameters change
-  useEffect(() => {
-    console.log('Refetching due to pagination parameters change');
-    refetch();
-  }, [currentPage, postsPerPage, refetch]);
+
   const handleSearch = (e) => {
     e.preventDefault();
-    setCurrentPage(1); // Reset to first page when applying new filters
+    setCurrentPage(1);
     refetch();
   };
+
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setSelectedTag('');
+    setStatusFilter('all');
+    setCurrentPage(1);
+    refetch();
+  };
+
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this blog post?')) {
       try {
         await deleteBlog(id).unwrap();
-        alert('Blog post deleted successfully');
         refetch();
       } catch (error) {
         alert('Failed to delete blog post: ' + (error.data?.message || 'Unknown error'));
       }
     }
   };
-  const handleEdit = (id) => {
-    // Navigate to edit page
-    window.location.href = `/admin/blog/edit/${id}`;
+
+  const handleEdit = (id, urlTitle) => {
+    navigate(`/update-blog-post/${urlTitle || id}`);
   };
+
   const handleStatusToggle = async (id, currentStatus) => {
+    const newStatus = currentStatus === 'PUBLISHED' || currentStatus === 'published' ? 'DRAFT' : 'PUBLISHED';
     try {
-      const newStatus = currentStatus === 'published' ? 'draft' : 'published';
-      // Use the updateBlog mutation from the Redux slice
       await updateBlog({ 
         id, 
         blogData: { status: newStatus } 
       }).unwrap();
-      alert(`Blog status updated to "${newStatus}"`);
-      
-      // Refresh the blogs list
       refetch();
     } catch (error) {
-      alert('Failed to update blog status: ' + (error?.data?.message || 'Unknown error'));
-    }
-  };  // Get blogs from API
-  const getBlogsList = () => {
-    // If we have data from the API, return it
-    if (blogs?.data && Array.isArray(blogs.data)) {
-      return blogs.data;
-    } else if (blogs?.data?.length === 0) {
-      // API returns empty array
-      console.log('API returned empty blog list');
-      return [];
-    } else if (!blogs) {
-      // No response yet
-      console.log('Waiting for API response...');
-      return [];
-    } else {
-      // Unexpected response format
-      console.error('Unexpected blog data format:', blogs);
-      return [];
+      alert('Failed to update blog status: ' + (error.data?.message || 'Unknown error'));
     }
   };
-    // Get tags for dropdown
+
+  const getBlogsList = () => {
+    if (blogs?.data && Array.isArray(blogs.data)) return blogs.data;
+    return [];
+  };
+
   const getAvailableTags = () => {
     if (tags?.data && Array.isArray(tags.data)) return tags.data;
     return [];
   };
-  
+
   const blogsList = getBlogsList();
   const availableTags = getAvailableTags();
 
   return (
-    <div className="posts-container">
-      <div className={`flex justify-between items-center mb-6 transform transition-all duration-500 ${animate ? 'translate-y-0 opacity-100' : 'translate-y-5 opacity-0'}`}>
-        <div></div> {/* Empty div for spacing */}        <button 
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-6 py-2 rounded-lg shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-300 flex items-center"
-          onClick={() => alert("Create New Post")}
-        >
-          <FiPlus className="h-5 w-5 mr-2" />
-          New Post
-        </button>
-      </div>
-
-      {/* Filters */}
-      <div className={`bg-white rounded-lg shadow-md p-6 mb-6 transform transition-all duration-500 delay-100 ${animate ? 'translate-y-0 opacity-100' : 'translate-y-5 opacity-0'}`}>
-        <h3 className="text-lg font-medium mb-4 text-gray-800">Filter Posts</h3>
-        <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="relative">            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <FiSearch className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search posts..."
-              className="border rounded-lg pl-10 pr-3 py-2 w-full focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition-all duration-300"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Blog Posts</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Manage all your blog content in one place
+            </p>
           </div>
-          
-          <select 
-            className="border rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition-all duration-300"
-            value={selectedTag}
-            onChange={(e) => setSelectedTag(e.target.value)}
-          >            <option value="">All Tags</option>
-            {availableTags.map(tag => (
-              <option key={tag.id} value={tag.tagName}>{tag.tagName}</option>
-            ))}
-          </select>
-          
-          <select 
-            className="border rounded-lg px-3 py-2 w-full focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition-all duration-300"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+          <button 
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-5 py-2.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-300 flex items-center gap-2 group"
+            onClick={() => navigate('/new-blog-post')}
           >
-            <option value="all">All Status</option>
-            <option value="published">Published</option>
-            <option value="draft">Draft</option>
-          </select>            <div className="flex items-center space-x-2">
+            <FiPlus className="h-5 w-5 transition-transform group-hover:rotate-90 duration-300" />
+            <span>New Post</span>
+          </button>
+        </div>
+
+        {/* Filters - Desktop */}
+        <div className="hidden sm:block bg-white rounded-xl shadow-sm p-5 mb-6 transition-all duration-500">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Filters</h3>
+          <form onSubmit={handleSearch} className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiSearch className="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search posts..."
+                className="block w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none transition-all duration-300"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <select 
+              className="block w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none transition-all duration-300"
+              value={selectedTag}
+              onChange={(e) => setSelectedTag(e.target.value)}
+            >
+              <option value="">All Tags</option>
+              {availableTags.map(tag => (
+                <option key={tag.id} value={tag.tagName}>{tag.tagName}</option>
+              ))}
+            </select>
+            
+            <select 
+              className="block w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none transition-all duration-300"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">All Status</option>
+              <option value="PUBLISHED">Published</option>
+              <option value="DRAFT">Draft</option>
+            </select>
+            
+            <div className="flex items-center gap-2">
               <button 
                 type="submit"
-                className="bg-indigo-100 text-indigo-800 px-4 py-2 rounded-lg hover:bg-indigo-200 transition-all duration-300 flex justify-center items-center"
+                className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-all duration-300 flex justify-center items-center gap-2"
               >
-                <FiFilter className="h-5 w-5 mr-1" />
-                Apply Filters
+                <FiFilter className="h-4 w-4" />
+                <span>Apply</span>
               </button>
               
-              <select
-                value={postsPerPage}
-                onChange={(e) => {
-                  setPostsPerPage(Number(e.target.value));
-                  setCurrentPage(1); // Reset to first page when changing items per page
-                }}
-                className="border rounded-lg px-2 py-2 text-sm focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition-all duration-300"
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="px-3 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-sm"
               >
-                <option value="5">5 per page</option>
-                <option value="10">10 per page</option>
-                <option value="25">25 per page</option>
-                <option value="50">50 per page</option>
-              </select>
+                Reset
+              </button>
             </div>
-        </form>
-      </div>
+            
+            <select
+              value={postsPerPage}
+              onChange={(e) => {
+                setPostsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="block w-full px-3 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-300 focus:border-blue-500 outline-none transition-all duration-300"
+            >
+              <option value="5">5 per page</option>
+              <option value="10">10 per page</option>
+              <option value="25">25 per page</option>
+              <option value="50">50 per page</option>
+            </select>
+          </form>
+        </div>
 
-      {/* Blog Posts Table */}
-      <div className={`transform transition-all duration-500 delay-200 ${animate ? 'translate-y-0 opacity-100' : 'translate-y-5 opacity-0'}`}>
-        {isLoading ? (
-          <div className="text-center p-12 bg-white rounded-lg shadow-md">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto mb-4"></div>
-            <p className="text-gray-500">Loading posts...</p>
+        {/* Mobile Filters Button */}
+        <div className="sm:hidden mb-4">
+          <button
+            onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+            className="w-full flex justify-between items-center p-3 bg-white rounded-lg border border-gray-200"
+          >
+            <span className="text-sm font-medium text-gray-700">Filters</span>
+            <FiFilter className="h-4 w-4 text-gray-500" />
+          </button>
+        </div>
+
+        {/* Mobile Filters Panel */}
+        {mobileFiltersOpen && (
+          <div className="sm:hidden bg-white rounded-xl shadow-sm p-4 mb-4 space-y-4">
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <FiSearch className="h-4 w-4 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                placeholder="Search..."
+                className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg text-sm"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            
+            <select 
+              className="block w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+              value={selectedTag}
+              onChange={(e) => setSelectedTag(e.target.value)}
+            >
+              <option value="">All Tags</option>
+              {availableTags.map(tag => (
+                <option key={tag.id} value={tag.tagName}>{tag.tagName}</option>
+              ))}
+            </select>
+            
+            <select 
+              className="block w-full px-3 py-2 border border-gray-200 rounded-lg text-sm"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">All Status</option>
+              <option value="PUBLISHED">Published</option>
+              <option value="DRAFT">Draft</option>
+            </select>
+            
+            <div className="flex gap-2">
+              <button 
+                type="button"
+                onClick={handleSearch}
+                className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm"
+              >
+                Apply
+              </button>
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="flex-1 border border-gray-300 rounded-lg text-sm"
+              >
+                Reset
+              </button>
+            </div>
           </div>
-        ) : isError ? (
-          <div className="text-center p-12 bg-white rounded-lg shadow-md text-red-600">            <FaExclamationCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
-            <p>Error loading posts. Please try again.</p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Views</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Author</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200 bg-white">
-                  {blogsList?.length > 0 ? (
-                    blogsList.map((blog, index) => (                      <tr key={blog.id} className={`hover:bg-gray-50 transform transition-all duration-500 ${animate ? 'translate-x-0 opacity-100' : 'translate-x-5 opacity-0'}`} style={{ transitionDelay: `${index * 50 + 300}ms` }}>
-                        <td className="px-6 py-4">
-                          <div className="flex items-start">
-                            <div className="flex-shrink-0 w-10 h-10 bg-gray-100 rounded-md overflow-hidden mr-3">
-                              {blog.coverImage ? (
-                                <img src={blog.coverImage} alt={blog.title} className="w-full h-full object-cover" />
-                              ) : blog.imageUrl ? (
-                                <img src={blog.imageUrl} alt={blog.title} className="w-full h-full object-cover" />
-                              ) : (                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-500">
-                                  <BsImage className="h-5 w-5" />
-                                </div>
-                              )}
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium text-gray-900 mb-1">{blog.title}</div>
-                              <div className="text-xs text-gray-500">{blog.slug || blog.urlTitle}</div>
-                              {blog.featured && (
-                                <div className="mt-1">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">                                    <BsStar className="mr-1 h-3 w-3" />
-                                    Featured
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2 inline-flex items-center text-xs leading-5 font-semibold rounded-full ${
-                            blog.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                          }`}>                            {blog.status === 'published' ? (
-                              <FaCheckCircle className="h-3 w-3 mr-1" />
-                            ) : (
-                              <FaPencilAlt className="h-3 w-3 mr-1" />
-                            )}
-                            {blog.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-500">
-                          {new Date(blog.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4">
-                          {blog.status === 'published' ? (
-                            <div className="flex items-center text-sm text-gray-500">                              <FaEye className="h-4 w-4 text-blue-500 mr-1" />
-                              <span>{blog.viewCount || 0}</span>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-gray-400">--</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4">
-                          {blog.author?.name ? (
+        )}
+
+        {/* Content */}
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          {isLoading ? (
+            <div className="p-12 text-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading posts...</p>
+            </div>
+          ) : isError ? (
+            <div className="p-12 text-center text-red-600">
+              <FaExclamationCircle className="h-10 w-10 mx-auto text-red-500 mb-4" />
+              <p>Error loading posts. Please try again.</p>
+              <button 
+                onClick={refetch}
+                className="mt-4 px-4 py-2 bg-gray-100 rounded-lg text-sm hover:bg-gray-200"
+              >
+                Retry
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Table */}
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Title
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Status
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Date
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Views
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Author
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {blogsList.length > 0 ? (
+                      blogsList.map((blog) => (
+                        <tr key={blog.id} className="hover:bg-gray-50 transition-colors duration-150">
+                          <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              {blog.author.avatar && (
-                                <img src={blog.author.avatar} alt={blog.author.name} className="w-5 h-5 rounded-full mr-2" />
-                              )}
-                              <span className="text-sm text-gray-700">{blog.author.name}</span>
+                              <div className="flex-shrink-0 h-10 w-10 rounded-md overflow-hidden bg-gray-100">
+                                {blog.coverImage ? (
+                                  <img src={blog.coverImage} alt={blog.title} className="h-full w-full object-cover" />
+                                ) : blog.imageUrl ? (
+                                  <img src={blog.imageUrl} alt={blog.title} className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 text-blue-400">
+                                    <BsImage className="h-5 w-5" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900 line-clamp-1">
+                                  {blog.title}
+                                  {blog.featured && (
+                                    <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                      <BsStarFill className="mr-1 h-3 w-3" />
+                                      Featured
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-1 line-clamp-1">
+                                  {blog.slug || blog.urlTitle}
+                                </div>
+                              </div>
                             </div>
-                          ) : (
-                            <span className="text-sm text-gray-500">{blog.author || 'Anonymous'}</span>
-                          )}
-                        </td>                        <td className="px-6 py-4 text-sm">
-                          <div className="flex space-x-2">
-                            <button 
-                              onClick={() => window.open(`/blog/${blog.urlTitle || blog.slug}`, '_blank')}
-                              className="text-blue-600 hover:text-blue-900 transition-all duration-300 p-1 rounded-full hover:bg-blue-50"
-                              title="View blog post"
-                            >
-                              <FaEye className="h-4 w-4" />
-                            </button>
-                            <button 
-                              onClick={() => handleEdit(blog.id)}
-                              className="text-indigo-600 hover:text-indigo-900 transition-all duration-300 p-1 rounded-full hover:bg-indigo-50"
-                              title="Edit blog post"
-                            >
-                              <FaPencilAlt className="h-4 w-4" />
-                            </button>                            
-                            <button 
-                              onClick={() => handleStatusToggle(blog.id, blog.status)}
-                              className={`transition-all duration-300 p-1 rounded-full ${
-                                blog.status === 'published' 
-                                  ? 'text-amber-600 hover:text-amber-900 hover:bg-amber-50' 
-                                  : 'text-green-600 hover:text-green-900 hover:bg-green-50'
-                              }`}
-                              title={blog.status === 'published' ? 'Change to draft' : 'Publish blog post'}
-                              disabled={isUpdatingStatus}
-                            >
-                              {isUpdatingStatus ? (
-                                <div className="h-4 w-4 animate-spin rounded-full border border-current border-t-transparent"></div>
-                              ) : blog.status === 'published' ? (
-                                <FaThumbsDown className="h-4 w-4" />
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2.5 py-1 inline-flex items-center text-xs leading-4 font-medium rounded-full ${
+                              blog.status === 'published' || blog.status === 'PUBLISHED' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {blog.status === 'published' || blog.status === 'PUBLISHED' ? (
+                                <FaCheckCircle className="mr-1.5 h-3 w-3" />
                               ) : (
-                                <FaCheckCircle className="h-4 w-4" />
+                                <RiDraftLine className="mr-1.5 h-3 w-3" />
                               )}
-                            </button>
-                            <button 
-                              onClick={() => handleDelete(blog.id)}
-                              className="text-red-600 hover:text-red-900 transition-all duration-300 p-1 rounded-full hover:bg-red-50"
-                              disabled={isDeleting}
-                              title="Delete blog post"
-                            >
-                              <FaTrash className="h-4 w-4" />
-                            </button>
+                              {blog.status === 'published' || blog.status === 'PUBLISHED' ? 'Published' : 'Draft'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center text-sm text-gray-500">
+                              <FiCalendar className="mr-1.5 h-4 w-4 text-gray-400" />
+                              {new Date(blog.createdAt).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric'
+                              })}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center text-sm text-gray-500">
+                              <FaEye className="mr-1.5 h-4 w-4 text-blue-400" />
+                              {blog.viewCount || '0'}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              {blog.author?.avatar ? (
+                                <img className="h-6 w-6 rounded-full mr-2" src={blog.author.avatar} alt={blog.author.name} />
+                              ) : (
+                                <div className="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center mr-2">
+                                  <FiUser className="h-3 w-3 text-gray-500" />
+                                </div>
+                              )}
+                              <span className="text-sm text-gray-900">
+                                {blog.author?.name || 'Anonymous'}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex justify-end items-center space-x-2">
+                              <button
+                                onClick={() => window.open(`/blogs/${blog.urlTitle || blog.slug}`, '_blank')}
+                                className="text-blue-600 hover:text-blue-900 p-1.5 rounded-md hover:bg-blue-50 transition-colors duration-200"
+                                title="View"
+                              >
+                                <FaEye className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleEdit(blog.id, blog.urlTitle || blog.slug)}
+                                className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-md hover:bg-indigo-50 transition-colors duration-200"
+                                title="Edit"
+                              >
+                                <FaPencilAlt className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => handleStatusToggle(blog.id, blog.status)}
+                                className={`p-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 text-xs font-semibold
+                                  ${blog.status === 'published' || blog.status === 'PUBLISHED'
+                                    ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border border-yellow-300'
+                                    : 'bg-green-100 text-green-800 hover:bg-green-200 border border-green-300'}
+                                  `}
+                                title={blog.status === 'published' || blog.status === 'PUBLISHED' ? 'Archive (move to Draft)' : 'Publish'}
+                                disabled={isUpdatingStatus}
+                              >
+                                {isUpdatingStatus ? (
+                                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></div>
+                                ) : blog.status === 'published' || blog.status === 'PUBLISHED' ? (
+                                  <>
+                                    <TiArchive className="h-4 w-4 mr-1" />
+                                    Archive
+                                  </>
+                                ) : (
+                                  <>
+                                    <FaCheckCircle className="h-4 w-4 mr-1" />
+                                    Publish
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={() => handleDelete(blog.id)}
+                                className="text-red-600 hover:text-red-900 p-1.5 rounded-md hover:bg-red-50 transition-colors duration-200"
+                                disabled={isDeleting}
+                                title="Delete"
+                              >
+                                <FaTrash className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="6" className="px-6 py-12 text-center">
+                          <div className="flex flex-col items-center justify-center">
+                            <FiSearch className="h-12 w-12 text-gray-400 mb-4" />
+                            <h3 className="text-lg font-medium text-gray-900 mb-1">No posts found</h3>
+                            <p className="text-gray-500 max-w-md">
+                              {searchTerm || selectedTag || statusFilter !== 'all' 
+                                ? 'Try adjusting your search or filter criteria'
+                                : 'Create your first blog post to get started'}
+                            </p>
+                            {!(searchTerm || selectedTag || statusFilter !== 'all') && (
+                              <button
+                                onClick={() => navigate('/new-blog-post')}
+                                className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none"
+                              >
+                                <FiPlus className="-ml-1 mr-2 h-5 w-5" />
+                                New Post
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="6" className="px-6 py-8 text-center text-gray-500">                        <FiPlus className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                        <p>No blog posts found</p>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>              </table>
-            </div>
-              {/* Pagination Controls */}
-            {blogs?.data && blogs?.data.length > 0 && totalPages > 1 && (
-              <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
-                <div className="flex-1 flex justify-between sm:hidden">
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className={`relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage === 1 
-                        ? 'text-gray-300 bg-gray-50 cursor-not-allowed' 
-                        : 'text-gray-700 bg-white hover:bg-gray-50'
-                    }`}
-                  >
-                    Previous
-                  </button>                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage >= totalPages}
-                    className={`ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md ${
-                      currentPage >= totalPages 
-                        ? 'text-gray-300 bg-gray-50 cursor-not-allowed' 
-                        : 'text-gray-700 bg-white hover:bg-gray-50'
-                    }`}
-                  >
-                    Next
-                  </button>
-                </div>
-                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">                  <div>
-                    <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">{blogs?.data?.length > 0 ? (currentPage - 1) * postsPerPage + 1 : 0}</span> to{' '}
-                      <span className="font-medium">
-                        {Math.min((currentPage - 1) * postsPerPage + (blogs?.data?.length || 0), totalItems)}
-                      </span>{' '}
-                      of <span className="font-medium">{totalItems}</span> results
-                    </p>
-                  </div>
-                  <div>
-                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                      {/* Previous page */}
-                      <button
-                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                        disabled={currentPage === 1}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium ${
-                          currentPage === 1 
-                            ? 'text-gray-300 cursor-not-allowed' 
-                            : 'text-gray-500 hover:bg-gray-50'
-                        }`}
-                      >                        <span className="sr-only">Previous</span>
-                        <FiChevronLeft className="h-5 w-5" />
-                      </button>                        {/* Page numbers */}
-                      {Array.from({ length: totalPages }, (_, index) => {
-                        const pageNumber = index + 1;
-                        // Calculate display logic for pagination
-                        const isFirstPage = pageNumber === 1;
-                        const isLastPage = pageNumber === totalPages;
-                        const isCurrentPage = pageNumber === currentPage;
-                        const isWithinRange = pageNumber >= currentPage - 1 && pageNumber <= currentPage + 1;
-                        const shouldDisplayPageNumber = isFirstPage || isLastPage || isWithinRange;
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination */}
+              {blogsList.length > 0 && totalPages > 1 && (
+                <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
+                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-gray-700">
+                        Showing <span className="font-medium">{(currentPage - 1) * postsPerPage + 1}</span> to{' '}
+                        <span className="font-medium">
+                          {Math.min(currentPage * postsPerPage, totalItems)}
+                        </span>{' '}
+                        of <span className="font-medium">{totalItems}</span> posts
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                          className={`relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
+                            currentPage === 1 
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                              : 'bg-white text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          <span className="sr-only">Previous</span>
+                          <FiChevronLeft className="h-5 w-5" />
+                        </button>
                         
-                        // Display ellipsis
-                        const shouldDisplayLeftEllipsis = pageNumber === 2 && currentPage > 3;
-                        const shouldDisplayRightEllipsis = pageNumber === totalPages - 1 && currentPage < totalPages - 2;
-                        
-                        // Return the page number button
-                        if (shouldDisplayPageNumber) {
+                        {/* Page numbers */}
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+
                           return (
                             <button
-                              key={pageNumber}
-                              onClick={() => setCurrentPage(pageNumber)}
+                              key={pageNum}
+                              onClick={() => setCurrentPage(pageNum)}
                               className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                isCurrentPage
-                                  ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
+                                currentPage === pageNum
+                                  ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
                                   : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
                               }`}
                             >
-                              {pageNumber}
+                              {pageNum}
                             </button>
                           );
-                        }
+                        })}
                         
-                        // Return left ellipsis
-                        if (shouldDisplayLeftEllipsis) {
-                          return (
-                            <span
-                              key="ellipsis-left"
-                              className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
-                            >
-                              &hellip;
-                            </span>
-                          );
-                        }
-                        
-                        // Return right ellipsis
-                        if (shouldDisplayRightEllipsis) {
-                          return (
-                            <span
-                              key="ellipsis-right"
-                              className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
-                            >
-                              &hellip;
-                            </span>
-                          );
-                        }
-                        
-                        return null;
-                      })}
-                      
-                      {/* Next page */}                      <button
-                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages || 1))}
-                        disabled={currentPage >= (totalPages || 1)}
-                        className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium ${
-                          currentPage >= (totalPages || 1)
-                            ? 'text-gray-300 cursor-not-allowed' 
-                            : 'text-gray-500 hover:bg-gray-50'
-                        }`}
-                      >                        <span className="sr-only">Next</span>
-                        <FiChevronRight className="h-5 w-5" />
-                      </button>
-                    </nav>
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage >= totalPages}
+                          className={`relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
+                            currentPage >= totalPages
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                              : 'bg-white text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          <span className="sr-only">Next</span>
+                          <FiChevronRight className="h-5 w-5" />
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
+                  
+                  {/* Mobile pagination */}
+                  <div className="flex-1 flex justify-between items-center sm:hidden">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className={`relative inline-flex items-center px-3 py-2 rounded-md border text-sm font-medium ${
+                        currentPage === 1 
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      Previous
+                    </button>
+                    <span className="text-sm text-gray-700">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage >= totalPages}
+                      className={`relative inline-flex items-center px-3 py-2 rounded-md border text-sm font-medium ${
+                        currentPage >= totalPages
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      Next
+                    </button>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -2,10 +2,10 @@ import { useState } from "react";
 import Dashboard from "./dashboard-components/dashboard.jsx";
 import Tags from "./dashboard-components/tags.jsx";
 import Posts from "./dashboard-components/posts.jsx";
+import Featured from "./dashboard-components/featured.jsx";
 
 function BlogDashboard() {
   const [activeSection, setActiveSection] = useState("dashboard");
-
   const renderContent = () => {
     switch (activeSection) {
       case "dashboard":
@@ -14,6 +14,8 @@ function BlogDashboard() {
         return <Posts />;
       case "tags":
         return <Tags />;
+      case "featured":
+        return <Featured />;
       default:
         return <Dashboard />;
     }
@@ -53,8 +55,7 @@ function BlogDashboard() {
             </svg>
             Posts
           </button>
-          
-          <button 
+            <button 
             className={`flex items-center w-full px-6 py-3 transition-all duration-300 ease-in-out
               ${activeSection === "tags" 
                 ? "bg-white bg-opacity-20 border-l-4 border-white" 
@@ -66,17 +67,26 @@ function BlogDashboard() {
             </svg>
             Tags
           </button>
+          
+          <button 
+            className={`flex items-center w-full px-6 py-3 transition-all duration-300 ease-in-out
+              ${activeSection === "featured" 
+                ? "bg-white bg-opacity-20 border-l-4 border-white" 
+                : "hover:bg-white hover:bg-opacity-10"}`}
+            onClick={() => setActiveSection("featured")}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+            </svg>
+            Featured
+          </button>
+  
         </nav>
       </div>
       
       {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="p-8">
-          <h2 className="text-2xl font-bold mb-6">
-            {activeSection === "dashboard" && "Dashboard"}
-            {activeSection === "posts" && "Blog Posts"}
-            {activeSection === "tags" && "Blog Tags"}
-          </h2>
+        <div className="p-8">         
           
           {renderContent()}
         </div>

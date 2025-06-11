@@ -50,6 +50,12 @@ export const blogApiSlice = createApi({
     getTagByName: builder.query({ query: (tagName) => `/tags/${tagName}` }),
     getBlogsByTag: builder.query({ query: (tagName) => `/tag/${tagName}` }),    
     getRelatedBlogsById: builder.query({ query: (id) => `/related/${id}` }),
+    getPopularTags: builder.query({ 
+      query: (limit = 10) => ({
+        url: `/popular-tags?limit=${limit}`,
+        method: 'GET',
+      })
+    }),
 
     // 🔐 ADMIN    addBlog: builder.mutation({ query: (body) => ({ url: `/`, method: "POST", body }) }),
     updateBlog: builder.mutation({ query: ({ id, blogData }) => ({ url: `/${id}`, method: "PATCH", body: blogData }) }),
@@ -77,6 +83,7 @@ export const {
   useGetRelatedBlogsByIdQuery,
   useGetBlogCountQuery,
   useGetTotalViewCountQuery,
+  useGetPopularTagsQuery,
 
   useAddBlogMutation,
   useUpdateBlogMutation,
