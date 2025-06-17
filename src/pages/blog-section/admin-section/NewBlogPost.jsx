@@ -39,70 +39,110 @@ const NewBlogPost = () => {
       }
     }
   };
-
   // Save draft or publish blog post
   const saveDraft = async (formData) => {
-    setSaving(true);
-    const updatePayload = new FormData();
-    updatePayload.append('title', formData.title);
-    updatePayload.append('content', content);
-    updatePayload.append('tags', JSON.stringify(tags));
-    updatePayload.append('status', 'DRAFT');
-
-    if (coverImage) {
-      updatePayload.append('coverImage', coverImage);
-    }
-
     try {
+      setSaving(true);
+      
+      // Validate required fields
+      if (!formData.title.trim()) {
+        alert('Please enter a blog title');
+        return;
+      }
+      
+      if (!content.trim()) {
+        alert('Please add some content to your blog');
+        return;
+      }
+      
+      const updatePayload = new FormData();
+      updatePayload.append('title', formData.title);
+      updatePayload.append('content', content);
+      updatePayload.append('tags', JSON.stringify(tags));
+      updatePayload.append('status', 'DRAFT');
+  
+      if (coverImage) {
+        updatePayload.append('coverImage', coverImage);
+      }
+  
       if (blogId) {
         // Update existing blog
-        await updateBlog({ id: blogId, blogData: updatePayload }).unwrap();
+        console.log('Updating blog with ID:', blogId);
+        const updateResponse = await updateBlog({ id: blogId, blogData: updatePayload }).unwrap();
+        console.log('Blog update response:', updateResponse);
       } else {
         // Create new blog
+        console.log('Creating new blog');
         const response = await createBlog(updatePayload).unwrap();
-        if (response.success) {
-          // setBlogId(response.data.id);
+        console.log('Blog creation response:', response);
+        
+        // Check for blog ID in various possible response formats
+        const newBlogId = response?.id || response?.data?.id || response?._id;
+        if (newBlogId) {
+          console.log('New blog ID:', newBlogId);
+          setBlogId(newBlogId);
         }
       }
+      
       alert('Blog post saved as draft!');
       navigate('/blog_dashboard');
     } catch (error) {
       console.error('Error saving blog post:', error);
-      alert('Error saving blog post.');
+      alert(`Error saving blog post: ${error.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
   };
-
   // Publish blog post
   const publishBlog = async () => {
-    setSaving(true);
-    const updatePayload = new FormData();
-    updatePayload.append('title', watch('title'));
-    updatePayload.append('content', content);
-    updatePayload.append('tags', JSON.stringify(tags));
-    updatePayload.append('status', 'PUBLISHED');
-
-    if (coverImage) {
-      updatePayload.append('coverImage', coverImage);
-    }
-
     try {
+      setSaving(true);
+      
+      // Validate required fields
+      if (!watch('title').trim()) {
+        alert('Please enter a blog title');
+        return;
+      }
+      
+      if (!content.trim()) {
+        alert('Please add some content to your blog');
+        return;
+      }
+      
+      const updatePayload = new FormData();
+      updatePayload.append('title', watch('title'));
+      updatePayload.append('content', content);
+      updatePayload.append('tags', JSON.stringify(tags));
+      updatePayload.append('status', 'PUBLISHED');
+  
+      if (coverImage) {
+        updatePayload.append('coverImage', coverImage);
+      }
+  
       if (blogId) {
         // Update existing blog
-        await updateBlog({ id: blogId, blogData: updatePayload }).unwrap();
+        console.log('Publishing existing blog with ID:', blogId);
+        const updateResponse = await updateBlog({ id: blogId, blogData: updatePayload }).unwrap();
+        console.log('Blog update response:', updateResponse);
       } else {
         // Create new blog
+        console.log('Creating and publishing new blog');
         const response = await createBlog(updatePayload).unwrap();
-        if (response.success) {
-          // setBlogId(response.data.id);
+        console.log('Blog creation response:', response);
+        
+        // Check for blog ID in various possible response formats
+        const newBlogId = response?.id || response?.data?.id || response?._id;
+        if (newBlogId) {
+          console.log('New blog ID:', newBlogId);
+          setBlogId(newBlogId);
         }
       }
+      
       alert('Blog post published successfully!');
       navigate('/blog_dashboard');
     } catch (error) {
       console.error('Error publishing blog post:', error);
-      alert('Error publishing blog post.');
+      alert(`Error publishing blog post: ${error.message || 'Unknown error'}`);
     } finally {
       setSaving(false);
     }
@@ -168,11 +208,10 @@ const NewBlogPost = () => {
               onClick={togglePreviewMode}
             >
               {isPreviewMode ? 'Edit Post' : 'Preview'}
-            </button>
-            <button
+            </button>            <button
               className="px-4 py-2 text-sm font-medium text-white bg-[#f20574] rounded-md hover:bg-[#d30062] transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f20574] disabled:opacity-50"
               type="submit"
-              disabled={saving || isPreviewMode}
+              disabled={saving || isPreviewMode || !watch('title')}
             >
               {saving ? 'Saving...' : 'Save Draft'}
             </button>
@@ -198,12 +237,12 @@ const NewBlogPost = () => {
                 <div className="mb-6">
                   <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-2">
                     Tags
-                  </label>
-                  <TagSelector 
+                  </label>                  <TagSelector 
                     selectedTags={tags}
                     onChange={setTags}
                     maxTags={10}
                     showSuggestions={true}
+                    allowNewTags={true}
                   />
                   <p className="mt-1 text-xs text-gray-500">Maximum 10 tags per post. Tags help categorize your blog posts.</p>
                 </div>

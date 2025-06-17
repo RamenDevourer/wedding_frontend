@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useGetAllTagsQuery } from '../../../redux/blogSlice';
+import { useGetAllTagsQuery, useAddTagMutation } from '../../../redux/blogSlice';
 
 /**
  * TagSelector component for selecting multiple tags
@@ -9,24 +9,32 @@ import { useGetAllTagsQuery } from '../../../redux/blogSlice';
  * @param {Function} props.onChange - Alternative callback function when tags are changed (for backward compatibility)
  * @param {number} props.maxTags - Maximum number of tags that can be selected
  * @param {boolean} props.showSuggestions - Whether to show tag suggestions
+ * @param {boolean} props.allowNewTags - Whether to allow creating new tags
  */
 export default function TagSelector({ 
   selectedTags = [], 
   onTagsChange, 
   onChange, 
   maxTags = 10,
-  showSuggestions = false
+  showSuggestions = false,
+  allowNewTags = true
 }) {
   // Use either onTagsChange or onChange callback
   const handleTagsChange = onTagsChange || onChange;
-  const { data: tagsData, isLoading } = useGetAllTagsQuery();
+  const { data: tagsData, isLoading, refetch } = useGetAllTagsQuery();
+  const [addTag] = useAddTagMutation();
   const [searchTerm, setSearchTerm] = useState('');
+  const [isCreatingTag, setIsCreatingTag] = useState(false);
   
   // Filter tags based on search term
   const filteredTags = tagsData?.data?.filter(tag => 
     tag.tagName.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
-  // Handle tag selection
+  
+  // Check if searched tag exists
+  const tagExists = searchTerm && filteredTags.some(tag => 
+    tag.tagName.toLowerCase() === searchTerm.toLowerCase()
+  );  // Handle tag selection
   const handleTagToggle = (tag) => {
     const tagName = tag.tagName;
     
@@ -44,18 +52,70 @@ export default function TagSelector({
       handleTagsChange([...selectedTags, tagName]);
     }
   };
+  
+  // Handle creating a new tag
+  const handleCreateNewTag = async () => {
+    if (!searchTerm.trim()) return;
+    
+    // Check if the tag already exists (case insensitive)
+    if (tagsData?.data?.some(tag => 
+      tag.tagName.toLowerCase() === searchTerm.toLowerCase()
+    )) {
+      // Tag exists, just add it to selected
+      const existingTag = tagsData.data.find(tag => 
+        tag.tagName.toLowerCase() === searchTerm.toLowerCase()
+      );
+      if (!selectedTags.includes(existingTag.tagName) && selectedTags.length < maxTags) {
+        handleTagsChange([...selectedTags, existingTag.tagName]);
+      }
+      return;
+    }
+    
+    try {
+      setIsCreatingTag(true);
+      // Create new tag in the database
+      await addTag({ tagName: searchTerm.trim() }).unwrap();
+      
+      // Refresh tags list
+      await refetch();
+      
+      // Add the new tag to selected tags
+      if (selectedTags.length < maxTags) {
+        handleTagsChange([...selectedTags, searchTerm.trim()]);
+      }
+      
+      // Clear search term
+      setSearchTerm('');
+    } catch (error) {
+      console.error('Failed to create tag:', error);
+      alert('Failed to create new tag. Please try again.');
+    } finally {
+      setIsCreatingTag(false);
+    }
+  };
 
   return (
-    <div className="tag-selector-container">
-      {/* Search input */}
+    <div className="tag-selector-container">      {/* Search input */}
       <div className="mb-3">
-        <input
-          type="text"
-          placeholder="Search tags..."
-          className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition-all duration-300"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Search tags..."
+            className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition-all duration-300"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          {allowNewTags && searchTerm.trim() && !tagExists && (
+            <button
+              type="button"
+              className="bg-indigo-600 text-white px-3 py-2 rounded-lg hover:bg-indigo-700 transition-all disabled:opacity-50"
+              onClick={handleCreateNewTag}
+              disabled={isCreatingTag}
+            >
+              {isCreatingTag ? 'Creating...' : 'Create Tag'}
+            </button>
+          )}
+        </div>
       </div>
       
       {/* Tags list */}
