@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { 
   useGetAllTagsQuery, 
   useAddTagMutation, 
@@ -15,33 +16,61 @@ import {
 
 export default function Tags() {
   const navigate = useNavigate();
+  
+  // State hooks
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [tagsPerPage, setTagsPerPage] = useState(10);
   const [sortBy, setSortBy] = useState('latest'); // 'latest', 'name', 'usage'
   const [animate, setAnimate] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
-
-  // Get all tags with pagination parameters
+  const [newTag, setNewTag] = useState({ name: '' });
+  const [editingTag, setEditingTag] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  
+  // Get the current user from Redux store
+  const user = useSelector(state => state.auth?.user);
+  
+  // Redux mutation hooks
+  const [addTag, { isLoading: isCreating }] = useAddTagMutation();
+  const [updateTag, { isLoading: isUpdating }] = useUpdateTagMutation();
+  const [deleteTag, { isLoading: isDeleting }] = useDeleteTagMutation();
+  
+  // Get all tags, passing the user to determine which endpoint to use
   const { data: tagsData, isLoading, refetch } = useGetAllTagsQuery({
-    s: (currentPage - 1) * tagsPerPage,
-    t: tagsPerPage,
+    user,
     search: searchTerm || undefined,
     sort: sortBy
   }, {
     refetchOnMountOrArgChange: true
   });
   
-  const [addTag, { isLoading: isCreating }] = useAddTagMutation();
-  const [updateTag, { isLoading: isUpdating }] = useUpdateTagMutation();
-  const [deleteTag, { isLoading: isDeleting }] = useDeleteTagMutation();
-
-  const [newTag, setNewTag] = useState({ name: '' });
-  const [editingTag, setEditingTag] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  // Calculate total pages based on tag count
-  const totalItems = tagsData?.totalCount || 0;
+  // Get tags from API and implement client-side pagination and filtering
+  const getTagsList = () => {
+    if (!tagsData?.data || !Array.isArray(tagsData.data)) return [];
+    
+    // Apply client-side search filter if provided
+    let filteredTags = tagsData.data;
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
+      filteredTags = filteredTags.filter(tag => 
+        tag.tagName.toLowerCase().includes(lowerSearch)
+      );
+    }
+    
+    return filteredTags;
+  };
+  
+  const allTags = getTagsList();
+  
+  // Calculate total items and pages for pagination
+  const totalItems = allTags.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / tagsPerPage));
+  
+  // Apply client-side pagination
+  const startIndex = (currentPage - 1) * tagsPerPage;
+  const endIndex = startIndex + tagsPerPage;
+  const tagsList = allTags.slice(startIndex, endIndex);
   
   useEffect(() => {
     // Trigger animation after component mount
@@ -123,14 +152,6 @@ export default function Tags() {
     });
     setIsModalOpen(true);
   };
-  
-  // Get tags from API
-  const getTagsList = () => {
-    if (tagsData?.data && Array.isArray(tagsData.data)) return tagsData.data;
-    return []; // Return empty array if no tags are available
-  };
-  
-  const tagsList = getTagsList();
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -178,12 +199,12 @@ export default function Tags() {
               >
                 {isCreating ? (
                   <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white mr-2"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white mr-2"></div>
                     Creating...
                   </>
                 ) : (
                   <>
-                    <FiPlus className="h-5 w-5 mr-2" />
+                    <FiPlus className="mr-2" />
                     Create Tag
                   </>
                 )}
@@ -192,69 +213,87 @@ export default function Tags() {
           </form>
         </div>
         
-        {/* Tags List */}
-        <div className={`bg-white rounded-lg shadow-lg transform transition-all duration-500 delay-100 ${animate ? 'translate-y-0 opacity-100' : 'translate-y-5 opacity-0'}`}>
-          <div className="border-b px-6 py-4 flex items-center justify-between">
+        {/* Tag Management Table */}
+        <div className={`bg-white rounded-lg shadow-lg p-6 mb-8 transform transition-all duration-500 ${animate ? 'translate-y-0 opacity-100' : 'translate-y-5 opacity-0'}`}>
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 space-y-4 lg:space-y-0">
             <div className="flex items-center">
-              <FiTag className="h-5 w-5 text-indigo-500 mr-3" />
-              <h3 className="text-lg font-medium text-gray-800">All Tags</h3>
+              <div className="bg-indigo-100 p-2 rounded-full mr-3">
+                <FiTag className="h-6 w-6 text-indigo-600" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-800">Manage Tags</h3>
             </div>
             
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                <form onSubmit={handleSearch} className="flex">
-                  <div className="relative">
-                    <input
-                      type="text"
-                      className="pl-9 pr-4 py-2 w-48 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 outline-none"
-                      placeholder="Search tags..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                    <FiSearch className="absolute left-3 top-2.5 text-gray-400" />
-                    {searchTerm && (
-                      <button 
-                        type="button" 
-                        onClick={handleClearSearch}
-                        className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
-                      >
-                        <FiX />
-                      </button>
-                    )}
-                  </div>
+            {/* Search and Filter Controls */}
+            <div className="flex flex-col sm:flex-row w-full lg:w-auto space-y-2 sm:space-y-0 space-x-0 sm:space-x-2">
+              {/* Search Form */}
+              <form onSubmit={handleSearch} className="flex items-center relative">
+                <input 
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search tags..."
+                  className="w-full sm:w-64 border rounded-lg pl-10 pr-8 py-2 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition-all duration-300"
+                />
+                <FiSearch className="absolute left-3 text-gray-400" />
+                {searchTerm && (
                   <button 
-                    type="submit" 
-                    className="ml-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                    type="button" 
+                    onClick={handleClearSearch}
+                    className="absolute right-3 text-gray-400 hover:text-gray-600"
                   >
-                    Search
+                    <FiX />
                   </button>
-                </form>
-              </div>
+                )}
+              </form>
               
+              {/* Sort Dropdown */}
               <div className="relative">
-                <button
-                  className="px-3 py-2 border border-gray-300 rounded-lg flex items-center hover:bg-gray-50 transition-colors"
-                  onClick={() => document.getElementById('sortDropdown').classList.toggle('hidden')}
+                <button 
+                  type="button"
+                  className="flex items-center border rounded-lg px-4 py-2 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-indigo-300 focus:outline-none transition-all duration-300 w-full sm:w-auto justify-between"
+                  onClick={() => {
+                    const dropdown = document.getElementById('sortDropdown');
+                    dropdown.classList.toggle('hidden');
+                  }}
                 >
-                  <FiFilter className="mr-2" />
-                  Sort
+                  <span className="flex items-center">
+                    <FiFilter className="mr-2 text-gray-500" />
+                    Sort by: {sortBy === 'latest' ? 'Latest' : sortBy === 'name' ? 'Name' : 'Usage'}
+                  </span>
+                  <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
                 </button>
-                <div id="sortDropdown" className="absolute right-0 mt-2 bg-white shadow-lg rounded-lg border z-10 hidden">
-                  <div className="py-1 w-48">
-                    <button 
-                      onClick={() => { setSortBy('latest'); document.getElementById('sortDropdown').classList.add('hidden'); }}
+                
+                <div id="sortDropdown" className="hidden absolute right-0 mt-2 w-48 bg-white shadow-lg rounded-lg overflow-hidden z-10 border">
+                  <div className="py-1">
+                    <button
+                      type="button"
+                      onClick={() => { 
+                        setSortBy('latest'); 
+                        setCurrentPage(1); // Reset to first page when sorting changes
+                        document.getElementById('sortDropdown').classList.add('hidden'); 
+                      }}
                       className={`block px-4 py-2 w-full text-left hover:bg-gray-50 ${sortBy === 'latest' ? 'bg-indigo-50 text-indigo-800' : ''}`}
                     >
                       Latest
                     </button>
-                    <button 
-                      onClick={() => { setSortBy('name'); document.getElementById('sortDropdown').classList.add('hidden'); }}
+                    <button
+                      type="button"
+                      onClick={() => { 
+                        setSortBy('name'); 
+                        setCurrentPage(1); // Reset to first page when sorting changes
+                        document.getElementById('sortDropdown').classList.add('hidden'); 
+                      }}
                       className={`block px-4 py-2 w-full text-left hover:bg-gray-50 ${sortBy === 'name' ? 'bg-indigo-50 text-indigo-800' : ''}`}
                     >
                       Name (A-Z)
                     </button>
-                    <button 
-                      onClick={() => { setSortBy('usage'); document.getElementById('sortDropdown').classList.add('hidden'); }}
+                    <button
+                      type="button"
+                      onClick={() => { 
+                        setSortBy('usage'); 
+                        setCurrentPage(1); // Reset to first page when sorting changes
+                        document.getElementById('sortDropdown').classList.add('hidden'); 
+                      }}
                       className={`block px-4 py-2 w-full text-left hover:bg-gray-50 ${sortBy === 'usage' ? 'bg-indigo-50 text-indigo-800' : ''}`}
                     >
                       Most Used
@@ -265,227 +304,249 @@ export default function Tags() {
             </div>
           </div>
           
-          {isLoading ? (
-            <div className="text-center p-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500 mx-auto mb-4"></div>
-              <p className="text-gray-500">Loading tags...</p>
-            </div>
-          ) : (
-            <div className="divide-y">
-              {tagsList?.length > 0 ? (
-                tagsList.map((tag, index) => (
-                  <div 
-                    key={tag.id} 
-                    className={`p-6 flex justify-between items-center transform transition-all duration-500 hover:bg-gray-50 ${animate ? 'translate-x-0 opacity-100' : 'translate-x-5 opacity-0'}`}
-                    style={{ transitionDelay: `${index * 50 + 200}ms` }}
-                  >
-                    <div>
-                      <div className="flex items-center">
-                        <div
-                          className="w-8 h-8 rounded-md mr-3 flex items-center justify-center text-white"
-                          style={{ 
-                            background: `linear-gradient(135deg, hsl(${(index * 60) % 360}, 80%, 65%), hsl(${(index * 60 + 40) % 360}, 80%, 45%))`,
-                            boxShadow: `0 3px 10px -3px hsla(${(index * 60) % 360}, 80%, 65%, 0.5)` 
-                          }}
-                        >
-                          <FiTag className="h-4 w-4" />
+          {/* Tags Table */}
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tag Name
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Blog Count
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-4 text-center">
+                      <div className="flex justify-center items-center space-x-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-indigo-500"></div>
+                        <span>Loading tags...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : tagsList.length > 0 ? (
+                  tagsList.map((tag) => (
+                    <tr key={tag.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <FiTag className="h-5 w-5 text-indigo-500 mr-2" />
+                          <span className="font-medium text-gray-800">{tag.tagName}</span>
                         </div>
-                        <h4 className="font-medium text-lg text-gray-800">{tag.tagName}</h4>
-                      </div>
-                      <div className="text-sm text-gray-500 mt-2 ml-11">
-                        <span className="bg-gradient-to-r from-indigo-50 to-purple-50 text-indigo-600 text-xs font-medium px-3 py-1 rounded-full shadow-sm">
-                          {tag.blogCount || 0} {tag.blogCount === 1 ? 'post' : 'posts'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-600">
+                          {tag._count?.blogs || tag.blogCount || 0} {(tag._count?.blogs || tag.blogCount || 0) === 1 ? 'blog' : 'blogs'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${(tag._count?.blogs || tag.blogCount || 0) > 0 ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                          {(tag._count?.blogs || tag.blogCount || 0) > 0 ? 'Active' : 'Unused'}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
+                        <button 
+                          onClick={() => openEditModal(tag)}
+                          className="text-indigo-600 hover:text-indigo-900 transition-all duration-300 inline-flex items-center"
+                        >
+                          <FiEdit2 className="w-4 h-4 mr-1" /> Edit
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteTag(tag.id)}
+                          className="text-red-600 hover:text-red-900 transition-all duration-300 inline-flex items-center ml-2"
+                        >
+                          <FiTrash2 className="w-4 h-4 mr-1" /> Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={4} className="px-6 py-4 text-center">
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <svg className="w-12 h-12 text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        <p>No tags found</p>
                       </div>
-                    </div>
-                    <div className="flex space-x-3">
-                      <button
-                        onClick={() => openEditModal(tag)}
-                        className="text-indigo-600 hover:text-indigo-900 transition-all duration-300 p-2 rounded-full hover:bg-indigo-50"
-                        title="Edit tag"
-                      >
-                        <FiEdit2 className="h-5 w-5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteTag(tag.id)}
-                        className="text-red-600 hover:text-red-900 transition-all duration-300 p-2 rounded-full hover:bg-red-50"
-                        title="Delete tag"
-                      >
-                        <FiTrash2 className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-center p-12 text-gray-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                  </svg>
-                  <p>No tags found</p>
-                </div>
-              )}
-              
-              {/* Pagination Controls */}
-              {tagsList?.length > 0 && (
-                <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
-                  <div className="flex items-center text-sm text-gray-500">
-                    <span>
-                      Showing {Math.min((currentPage - 1) * tagsPerPage + 1, totalItems)} to {Math.min(currentPage * tagsPerPage, totalItems)} of {totalItems} tags
-                    </span>
-                    <div className="ml-4 flex items-center">
-                      <label htmlFor="tagsPerPage" className="mr-2">Per page</label>
-                      <select 
-                        id="tagsPerPage" 
-                        className="border rounded px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-300"
-                        value={tagsPerPage}
-                        onChange={(e) => {
-                          setTagsPerPage(Number(e.target.value));
-                          setCurrentPage(1);
-                        }}
-                      >
-                        {[5, 10, 25, 50].map(num => (
-                          <option key={num} value={num}>{num}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <button 
-                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                      disabled={currentPage === 1}
-                      className={`p-2 rounded-lg ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
-                      aria-label="Previous page"
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            
+            {/* Pagination Controls */}
+            {tagsList?.length > 0 && (
+              <div className="flex items-center justify-between border-t border-gray-200 px-6 py-4">
+                <div className="flex items-center text-sm text-gray-500">
+                  <span>
+                    Showing {Math.min((currentPage - 1) * tagsPerPage + 1, totalItems)} to {Math.min(currentPage * tagsPerPage, totalItems)} of {totalItems} tags
+                  </span>
+                  <div className="ml-4 flex items-center">
+                    <label htmlFor="tagsPerPage" className="mr-2">Per page</label>
+                    <select 
+                      id="tagsPerPage" 
+                      className="border rounded px-2 py-1 outline-none focus:ring-1 focus:ring-indigo-300"
+                      value={tagsPerPage}
+                      onChange={(e) => {
+                        setTagsPerPage(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
                     >
-                      <FiChevronLeft />
-                    </button>
-                    
-                    {/* Page numbers */}
-                    <div className="flex space-x-1">
-                      {Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
-                        // Logic to show pages around current page
-                        let pageNum;
-                        if (totalPages <= 5) {
-                          pageNum = idx + 1;
-                        } else if (currentPage <= 3) {
-                          pageNum = idx + 1;
-                        } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + idx;
-                        } else {
-                          pageNum = currentPage - 2 + idx;
-                        }
-                        
-                        if (totalPages > 5) {
-                          // Show first page
-                          if (idx === 0 && pageNum > 1) {
-                            return (
-                              <div key="start" className="flex space-x-1">
-                                <button
-                                  key="1"
-                                  onClick={() => setCurrentPage(1)}
-                                  className={`w-8 h-8 flex items-center justify-center rounded-lg ${1 === currentPage ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}
-                                >
-                                  1
-                                </button>
-                                {pageNum > 2 && (
-                                  <span className="w-8 h-8 flex items-center justify-center text-gray-500">
-                                    ...
-                                  </span>
-                                )}
-                              </div>
-                            );
-                          }
-                          
-                          // Show last page
-                          if (idx === 4 && pageNum < totalPages) {
-                            return (
-                              <div key="end" className="flex space-x-1">
-                                {pageNum < totalPages - 1 && (
-                                  <span className="w-8 h-8 flex items-center justify-center text-gray-500">
-                                    ...
-                                  </span>
-                                )}
-                                <button
-                                  key={totalPages}
-                                  onClick={() => setCurrentPage(totalPages)}
-                                  className={`w-8 h-8 flex items-center justify-center rounded-lg ${totalPages === currentPage ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}
-                                >
-                                  {totalPages}
-                                </button>
-                              </div>
-                            );
-                          }
-                        }
-                        
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => setCurrentPage(pageNum)}
-                            className={`w-8 h-8 flex items-center justify-center rounded-lg ${pageNum === currentPage ? 'bg-indigo-100 text-indigo-700 font-medium' : 'text-gray-700 hover:bg-gray-100'}`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    
-                    <button 
-                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className={`p-2 rounded-lg ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
-                      aria-label="Next page"
-                    >
-                      <FiChevronRight />
-                    </button>
+                      {[5, 10, 25, 50].map(num => (
+                        <option key={num} value={num}>{num}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
+                <div className="flex items-center space-x-2">
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className={`p-2 rounded-lg ${currentPage === 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
+                    aria-label="Previous page"
+                  >
+                    <FiChevronLeft />
+                  </button>
+                  
+                  {/* Page numbers */}
+                  <div className="flex space-x-1">
+                    {Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
+                      // Logic to show pages around current page
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = idx + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = idx + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + idx;
+                      } else {
+                        pageNum = currentPage - 2 + idx;
+                      }
+                      
+                      if (totalPages > 5) {
+                        // Show first page
+                        if (idx === 0 && pageNum !== 1) {
+                          return (
+                            <div key="first-page" className="flex items-center space-x-1">
+                              <button
+                                onClick={() => setCurrentPage(1)}
+                                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-700"
+                              >
+                                1
+                              </button>
+                              <span className="text-gray-400">...</span>
+                            </div>
+                          );
+                        }
+                        
+                        // Show last page
+                        if (idx === 4 && pageNum !== totalPages) {
+                          return (
+                            <div key="last-page" className="flex items-center space-x-1">
+                              <span className="text-gray-400">...</span>
+                              <button
+                                onClick={() => setCurrentPage(totalPages)}
+                                className="w-8 h-8 flex items-center justify-center rounded hover:bg-gray-100 text-gray-700"
+                              >
+                                {totalPages}
+                              </button>
+                            </div>
+                          );
+                        }
+                      }
+                      
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`w-8 h-8 flex items-center justify-center rounded ${
+                            currentPage === pageNum
+                              ? 'bg-indigo-500 text-white'
+                              : 'hover:bg-gray-100 text-gray-700'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className={`p-2 rounded-lg ${currentPage === totalPages ? 'text-gray-300 cursor-not-allowed' : 'text-gray-700 hover:bg-gray-100'}`}
+                    aria-label="Next page"
+                  >
+                    <FiChevronRight />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
-
+      
       {/* Edit Tag Modal */}
-      {isModalOpen && editingTag && (
+      {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-fadeIn">
           <div className="bg-white rounded-lg shadow-2xl p-6 w-full max-w-md animate-scaleIn">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-800">Edit Tag</h3>
+              <h3 className="text-lg font-medium text-gray-900">Edit Tag</h3>
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                className="text-gray-400 hover:text-gray-600"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                <FiX />
               </button>
             </div>
             <form onSubmit={handleUpdateTag} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="tagName">
                   Tag Name
                 </label>
                 <input 
+                  id="tagName"
                   type="text" 
                   className="w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-300 focus:border-indigo-500 outline-none transition-all duration-300"
-                  value={editingTag.name}
+                  value={editingTag?.name || ''}
                   onChange={(e) => setEditingTag({...editingTag, name: e.target.value})}
                   placeholder="Enter tag name"
                   required
                 />
               </div>
-              <div className="flex justify-end space-x-3 mt-6">
+              <div className="flex justify-end space-x-3">
                 <button 
                   type="button"
-                  className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-all duration-300"
                   onClick={() => setIsModalOpen(false)}
+                  className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-all duration-300"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-4 py-2 rounded-lg shadow hover:shadow-md transition-all duration-300"
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-all duration-300 flex items-center"
+                  disabled={isUpdating}
                 >
-                  Update Tag
+                  {isUpdating ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white mr-2"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <FiCheck className="mr-2" />
+                      Save Changes
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -494,6 +555,10 @@ export default function Tags() {
       )}
       
       <style jsx>{`
+        .tags-container {
+          max-width: 100%;
+          overflow-x: hidden;
+        }
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }

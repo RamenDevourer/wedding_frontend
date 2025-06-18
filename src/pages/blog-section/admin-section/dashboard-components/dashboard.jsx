@@ -19,7 +19,7 @@ import {
 
 export default function Dashboard() {  const navigate = useNavigate();  const { data: blogCount, isLoading: isLoadingBlogCount } = useGetBlogCountQuery();
   const { data: viewCount, isLoading: isLoadingViewCount } = useGetTotalViewCountQuery();
-  const { data: tags, isLoading: isLoadingTags } = useGetAllTagsQuery();
+  const { data: tags, isLoading: isLoadingTags } = useGetAllTagsQuery({ user: { role: 'ADMIN' } }); // Explicitly pass role as ADMIN
   const { data: popularTags, isLoading: isLoadingPopularTags } = useGetPopularTagsQuery(5);
   const { data: blogsData, isLoading: isLoadingBlogs } = useGetBlogsQuery({ t: 10 });
   

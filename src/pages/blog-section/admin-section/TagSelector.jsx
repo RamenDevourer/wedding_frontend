@@ -17,9 +17,8 @@ export default function TagSelector({
   maxTags = 10,
   showSuggestions = false
 }) {
-  // Use either onTagsChange or onChange callback
-  const handleTagsChange = onTagsChange || onChange;
-  const { data: tagsData, isLoading } = useGetAllTagsQuery();
+  // Use either onTagsChange or onChange callback  const handleTagsChange = onTagsChange || onChange;
+  const { data: tagsData, isLoading } = useGetAllTagsQuery({ user: { role: 'ADMIN' } }); // Explicitly pass role as ADMIN
   const [searchTerm, setSearchTerm] = useState('');
   
   // Filter tags based on search term

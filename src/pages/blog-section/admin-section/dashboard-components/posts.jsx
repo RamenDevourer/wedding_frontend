@@ -34,9 +34,8 @@ export default function Posts() {
 
   const totalItems = blogs?.totalCount || 0;
   const totalPages = postsPerPage > 0 ? Math.max(1, Math.ceil(totalItems / postsPerPage)) : 1;
-  
-  // Get tags for filter dropdown
-  const { data: tags } = useGetAllTagsQuery();
+    // Get tags for filter dropdown
+  const { data: tags } = useGetAllTagsQuery({ user: { role: 'ADMIN' } }); // Explicitly pass role as ADMIN
   const [deleteBlog, { isLoading: isDeleting }] = useDeleteBlogMutation();
   const [updateBlog, { isLoading: isUpdatingStatus }] = useUpdateBlogMutation();
   const navigate = useNavigate();
