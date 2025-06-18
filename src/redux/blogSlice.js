@@ -78,9 +78,14 @@ export const blogApiSlice = createApi({
         url: `/popular-tags?limit=${limit}`,
         method: "GET",
       }),
+    }), // 🔐 ADMIN
+    addBlog: builder.mutation({
+      query: (body) => ({
+        url: `/`,
+        method: "POST",
+        body,
+      }),
     }),
-
-    // 🔐 ADMIN    addBlog: builder.mutation({ query: (body) => ({ url: `/`, method: "POST", body }) }),
     updateBlog: builder.mutation({
       query: ({ id, blogData }) => ({
         url: `/${id}`,

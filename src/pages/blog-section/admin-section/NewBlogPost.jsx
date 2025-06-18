@@ -5,7 +5,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import BlogPreview from '../blog-section/BlogPreview';
 import { useAddBlogMutation, useUpdateBlogMutation } from '../../../redux/blogSlice';
-import TagSelector from './TagSelector';
+import { TagSelector } from './dashboard-components/tags';
 
 const NewBlogPost = () => {
   const navigate = useNavigate();
@@ -15,9 +15,13 @@ const NewBlogPost = () => {
 
   const [content, setContent] = useState('');
   const [coverImage, setCoverImage] = useState('');
-  const [coverImagePreview, setCoverImagePreview] = useState('');
-  const [tags, setTags] = useState([]);
+  const [coverImagePreview, setCoverImagePreview] = useState('');  const [tags, setTags] = useState([]);
   const [saving, setSaving] = useState(false);
+  
+  // Add debug logging for tags
+  useEffect(() => {
+    console.log("Tags updated:", tags);
+  }, [tags]);
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [currentDate] = useState(new Date());
   const [blogId, setBlogId] = useState(null);

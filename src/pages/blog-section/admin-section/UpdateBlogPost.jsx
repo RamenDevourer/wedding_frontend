@@ -6,7 +6,7 @@ import 'react-quill/dist/quill.snow.css';
 import BlogPreview from '../blog-section/BlogPreview';
 import { useUpdateBlogMutation, useGetBlogByUrlTitleQuery, useGetAllTagsQuery } from '../../../redux/blogSlice';
 import { FiTag, FiSearch, FiPlus } from 'react-icons/fi';
-import TagSelector from './TagSelector';
+import { TagSelector } from './dashboard-components/tags';
 
 const UpdateBlogPost = () => {
   const navigate = useNavigate();
