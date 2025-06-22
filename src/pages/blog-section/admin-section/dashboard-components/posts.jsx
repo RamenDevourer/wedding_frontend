@@ -373,18 +373,9 @@ export default function Posts() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              {blog.author?.avatar ? (
-                                <img className="h-6 w-6 rounded-full mr-2" src={blog.author.avatar} alt={blog.author.name} />
-                              ) : (
-                                <div className="h-6 w-6 rounded-full bg-gray-100 flex items-center justify-center mr-2">
-                                  <FiUser className="h-3 w-3 text-gray-500" />
-                                </div>
-                              )}
-                              <span className="text-sm text-gray-900">
-                                {blog.author?.name || 'Anonymous'}
-                              </span>
-                            </div>
+                            <span className="text-sm text-gray-900">
+                              {blog.authorId || 'Unknown Author'}
+                            </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex justify-end items-center space-x-2">

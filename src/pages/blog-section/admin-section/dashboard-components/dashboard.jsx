@@ -27,13 +27,17 @@ export default function Dashboard() {  const navigate = useNavigate();  const { 
   const [updateBlog] = useUpdateBlogMutation();
   
   const [stats, setStats] = useState({
+    totalViews: 0,
     weeklyViews: 0,
     monthlyViews: 0,
     engagementRate: 0,
     totalPosts: 0,
     publishedPosts: 0,
     draftPosts: 0,
-    totalTags: 0
+    weeklyPosts: 0,
+    monthlyPosts: 0,
+    totalTags: 0,
+    taggedPosts: 0
   });
   
   const [animate, setAnimate] = useState(false);
@@ -42,8 +46,9 @@ export default function Dashboard() {  const navigate = useNavigate();  const { 
     if (viewCount) {
       setStats(prev => ({
         ...prev,
-        weeklyViews: Math.round((viewCount.totalViews || 0) / 4),
-        monthlyViews: viewCount.totalViews || 0,
+        totalViews: viewCount.totalViews || 0,
+        weeklyViews: viewCount.weeklyViews || 0,
+        monthlyViews: viewCount.monthlyViews || 0,
         engagementRate: Math.min(Math.round(((viewCount.totalViews || 0) / 100) * 5), 100)
       }));
     }
@@ -53,7 +58,10 @@ export default function Dashboard() {  const navigate = useNavigate();  const { 
         ...prev,
         totalPosts: blogCount.all || 0,
         publishedPosts: blogCount.published || 0,
-        draftPosts: blogCount.draft || 0
+        draftPosts: blogCount.draft || 0,
+        weeklyPosts: blogCount.weeklyPosts || 0,
+        monthlyPosts: blogCount.monthlyPosts || 0,
+        taggedPosts: blogCount.taggedPosts || 0
       }));
     }
     
@@ -174,16 +182,17 @@ export default function Dashboard() {  const navigate = useNavigate();  const { 
                 <div className="flex gap-2 mt-3">
                   <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full flex items-center gap-1">
                     <FiCalendar className="h-3 w-3" />
-                    week: {stats.publishedPosts}
+                    week: {stats.weeklyPosts}
                   </span>
                   <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full flex items-center gap-1">
                     <FiCalendar className="h-3 w-3" />
-                    month: {stats.publishedPosts}
+                    month: {stats.monthlyPosts}
                   </span>
                 </div>
               </div>
             </div>
           </div>
+          {/* Total Views */}
           <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between">
               <div>
@@ -192,12 +201,16 @@ export default function Dashboard() {  const navigate = useNavigate();  const { 
                   Total Views
                 </p>
                 <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                  {stats.monthlyViews.toLocaleString()}
+                  {stats.totalViews.toLocaleString()}
                 </h3>
-                <div className="flex gap-4 mt-3">
-                  <span className="text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded-full flex items-center gap-1">
+                <div className="flex gap-2 mt-3">
+                  <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full flex items-center gap-1">
                     <FiTrendingUp className="h-3 w-3" />
-                    {stats.weeklyViews.toLocaleString()} weekly
+                    week: {stats.weeklyViews.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded-full flex items-center gap-1">
+                    <FiTrendingUp className="h-3 w-3" />
+                    month: {stats.monthlyViews.toLocaleString()}
                   </span>
                 </div>
               </div>
@@ -303,7 +316,10 @@ export default function Dashboard() {  const navigate = useNavigate();  const { 
                             {blog.status}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{blog.excerpt || 'No excerpt available'}</p>
+                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">
+                          <strong className="block text-xs text-gray-400">By {blog.authorId}</strong>
+                          {blog.excerpt || 'No excerpt available'}
+                        </p>
                         <div className="flex items-center justify-between mt-3">
                           <div className="flex items-center gap-3 text-xs text-gray-500">
                             <span className="flex items-center gap-1">
@@ -479,14 +495,14 @@ export default function Dashboard() {  const navigate = useNavigate();  const { 
                 
                 <div>
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">Tagged Content</span>
-                    <span className="font-medium">{Math.round((stats.totalTags / stats.totalPosts) * 100)}%</span>
+                    <span className="text-gray-600">Tagged Posts</span>
+                    <span className="font-medium">{stats.taggedPosts} ({stats.totalPosts ? Math.round((stats.taggedPosts / stats.totalPosts) * 100) : 0}%)</span>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-2">
                     <div 
                       className="bg-purple-600 h-2 rounded-full" 
                       style={{ 
-                        width: `${(stats.totalTags / stats.totalPosts) * 100}%` 
+                        width: `${stats.totalPosts ? (stats.taggedPosts / stats.totalPosts) * 100 : 0}%` 
                       }}
                     ></div>
                   </div>
