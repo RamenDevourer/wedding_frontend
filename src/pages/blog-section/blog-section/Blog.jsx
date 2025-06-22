@@ -7,10 +7,10 @@ import
   useToggleLikeBlogMutation, 
   useGetBlogByUrlTitleQuery,
   useGetRelatedBlogsByIdQuery,
+  useGetPopularTagsQuery,
 } from "../../../redux/blogSlice";
 import { useSelector } from "react-redux";
 import Footer from '../../Footer';
-// Import Quill styles to ensure proper formatting
 import 'react-quill/dist/quill.snow.css';
 import { Helmet } from 'react-helmet';
 
@@ -138,6 +138,9 @@ const Blog = () => {
 
   // Always show exactly 3 visible posts at a time in the carousel
   const visiblePosts = relatedPosts?.data?.slice(carouselIndex, carouselIndex + 3) || [];
+
+  // Fetch popular tags for the sidebar
+  const { data: popularTagsData, isLoading: popularLoading, error: popularError } = useGetPopularTagsQuery(10);
 
   if (isLoading) return <div className="text-center py-10">Loading blog...</div>;
   if (error) return <div className="text-center py-10 text-red-500">Error loading blog</div>;
@@ -440,24 +443,17 @@ const Blog = () => {
             <div className="bg-white shadow-sm rounded-lg p-6 mb-6">
               <h3 className="font-bold text-lg mb-4 text-gray-800 border-b pb-2">Popular Tags</h3>
               <div className="flex flex-wrap gap-2">
-                <Link to="/blogs?tag=wedding" className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
-                  #wedding
-                </Link>
-                <Link to="/blogs?tag=planning" className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
-                  #planning
-                </Link>
-                <Link to="/blogs?tag=venue" className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
-                  #venue
-                </Link>
-                <Link to="/blogs?tag=budget" className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
-                  #budget
-                </Link>
-                <Link to="/blogs?tag=dresses" className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
-                  #dresses
-                </Link>
-                <Link to="/blogs?tag=photography" className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full">
-                  #photography
-                </Link>
+                {popularLoading && <span className="text-sm text-gray-500">Loading...</span>}
+                {popularError && <span className="text-sm text-red-500">Failed to load tags</span>}
+                {!popularLoading && !popularError && popularTagsData?.data?.map((tag) => (
+                  <Link
+                    key={tag.id}
+                    to={`/blogs?tag=${tag.tagName}`}
+                    className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full"
+                  >
+                    #{tag.tagName}
+                  </Link>
+                ))}
               </div>
             </div>
 
