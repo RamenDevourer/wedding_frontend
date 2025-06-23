@@ -4,11 +4,11 @@ import { useForm } from 'react-hook-form';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import BlogPreview from '../blog-section/BlogPreview';
-import { useUpdateBlogMutation, useGetBlogByUrlTitleQuery, useGetAllTagsQuery } from '../../../redux/blogSlice';
-import { FiTag, FiSearch, FiPlus } from 'react-icons/fi';
-import { TagSelector } from './dashboard-components/tags';
+import { useUpdateBlogMutation, useGetBlogByUrlTitleQuery } from '../../../redux/blogSlice';
+import InlineTagCreator from './dashboard-components/InlineTagCreator';
+import { FiArrowLeft, FiSave, FiEye, FiEdit, FiUploadCloud, FiTrash2 } from 'react-icons/fi';
 
-const UpdateBlogPost = () => {
+export default function UpdateBlogPost() {
   const navigate = useNavigate();
   const { urlTitle } = useParams(); // Get the blog URL title from the URL params
   const [updateBlog] = useUpdateBlogMutation();
@@ -52,10 +52,9 @@ const UpdateBlogPost = () => {
   const modules = {
     toolbar: {
       container: '#toolbar',
-      handlers: {
-        // Add any custom handlers here if needed
-      }
-    }
+    },
+    clipboard: { matchVisual: false },
+    history: { delay: 1000, maxStack: 50, userOnly: true },
   };
 
   // Save or update the blog post
@@ -114,186 +113,87 @@ const UpdateBlogPost = () => {
   return (
     <form onSubmit={handleSubmit(saveDraft)}>
       <div className="flex flex-col h-screen bg-gray-50">
-        {/* First level navbar */}
-        <div className="flex items-center justify-between px-8 py-4 bg-white border-b border-gray-200 shadow-sm">
-          <div className="flex items-center">
-            <button
-              type="button"
-              className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 hover:text-[#f20574] transition-colors rounded-md hover:bg-gray-50"
-              onClick={() => navigate('/blog_dashboard')}
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              Back to Dashboard
-            </button>
-          </div>
+        {/* Header navbar */}
+        <div className="flex items-center justify-between px-6 py-4 bg-white border-b border-gray-200 shadow-sm">
+          {/* Back button */}
+          <button type="button" className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 hover:text-pink-600" onClick={() => navigate('/blog_dashboard')}>
+            <FiArrowLeft className="mr-2 h-5 w-5" /> Back to Dashboard
+          </button>
           
-          <div className="flex-grow mx-8">
-            <input
-              type="text"
-              placeholder="Blog Title"
-              className="w-full px-5 py-3 text-xl font-medium border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#f20574] focus:border-[#f20574] outline-none transition-all bg-white"
-              {...register('title', { required: true })}
-              disabled={isPreviewMode}
-            />
-          </div>
-
+          {/* Title input */}
+          <input
+            {...register('title', { required: true })}
+            disabled={isPreviewMode}
+            className="flex-grow mx-6 px-5 py-3 text-xl border rounded-lg focus:ring-2 focus:ring-pink-500"
+            placeholder="Enter blog title here..."
+          />
+          
+          {/* Preview & Save buttons */}
           <div className="flex items-center space-x-3">
-            <button
-              type="button"
-              className={`px-4 py-2 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f20574]
-                ${isPreviewMode ? 'text-[#f20574] bg-pink-50 border border-pink-200' : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'}`}
-              onClick={togglePreviewMode}
-            >
-              {isPreviewMode ? 'Edit Post' : 'Preview'}
+            <button type="button" onClick={togglePreviewMode} className={`px-4 py-2 rounded-md ${isPreviewMode?'bg-pink-50 text-pink-700':'bg-white text-gray-700'}`}>
+              {isPreviewMode? <><FiEdit className="mr-1"/> Edit Post</>: <><FiEye className="mr-1"/> Preview</>}
             </button>
-            <button
-              className="px-4 py-2 text-sm font-medium text-[#f20574] bg-white border border-[#f20574] rounded-md hover:bg-pink-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#f20574] disabled:opacity-50"
-              type="submit"
-              disabled={saving || isPreviewMode}
-            >
-              {saving ? 'Saving...' : 'Update'}
+            <button type="submit" disabled={saving||isPreviewMode} className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-md">
+              <FiSave className="mr-1"/>{saving?'Saving...':'Save Draft'}
             </button>
           </div>
         </div>
 
         <div className="flex flex-grow overflow-hidden">
-          {/* Left sidebar - only visible in edit mode */}
+          {/* Sidebar */}
           {!isPreviewMode && (
-            <div className="w-72 bg-white border-r border-gray-200 flex flex-col overflow-y-auto">
-              <div className="p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Blog Properties</h3>
+            <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
+               <div className="p-6">
+                 <h3 className="text-lg font-medium">Blog Properties</h3>
 
                 {/* Tags section */}
                 <div className="mb-6">
-                  <label htmlFor="tags" className="block text-sm font-medium text-gray-700 mb-2">
-                    Tags
-                  </label>
-                  <TagSelector 
-                    selectedTags={tags}
-                    onChange={setTags}
-                    maxTags={10}
-                    showSuggestions={true}
-                  />
-                  <p className="mt-1 text-xs text-gray-500">Maximum 10 tags per post.</p>
-                </div>
+                  <label className="block mb-2">Tags</label>
+                  <InlineTagCreator selectedTags={tags} onChange={setTags} maxTags={10} />
+                 </div>
 
-                {/* Cover image upload section */}
+                {/* Cover image upload */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cover Image
-                  </label>
+                   <label className="block mb-2">Cover Image</label>
 
                   {!coverImagePreview ? (
-                    <div className="mt-1 border-2 border-gray-300 border-dashed rounded-md px-4 py-4">
-                      <div className="space-y-2 text-center">
-                        <svg className="mx-auto h-10 w-10 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                          <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
-                            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                        <div className="text-xs text-gray-600">
-                          <label htmlFor="coverImage" className="relative cursor-pointer bg-white rounded-md font-medium text-[#f20574] hover:text-[#d30062] focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-[#f20574]">
-                            <span>Upload image</span>
-                            <input
-                              id="coverImage"
-                              name="coverImage"
-                              type="file"
-                              accept="image/*"
-                              className="sr-only"
-                              onChange={handleCoverImageChange}
-                            />
-                          </label>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="mt-1 relative rounded-md overflow-hidden">
-                      <img
-                        src={coverImagePreview}
-                        alt="Cover preview"
-                        className="w-full h-40 object-cover rounded-md"
-                      />
-                      <button
-                        type="button"
-                        onClick={removeCoverImage}
-                        className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 shadow-md hover:bg-red-700 focus:outline-none"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+                     <div className="border-2 border-dashed rounded-md p-6 text-center">
+                      <FiUploadCloud className="mx-auto h-12 w-12 text-gray-400" />
+                       <p className="mt-2 text-sm">Click to upload or drag and drop</p>
+                       <input type="file" accept="image/*" className="sr-only" onChange={handleCoverImageChange} />
+                     </div>
+                   ) : (
+                     <div className="relative">
+                      <img src={coverImagePreview} className="w-full h-48 object-cover rounded-md" />
+                       <button type="button" onClick={removeCoverImage} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1">
+                         <FiTrash2 />
+                       </button>
+                     </div>
+                   )}
+                 </div>
+               </div>
+             </div>
+           )}
 
-          {/* Main content */}
-          <div className={`flex-grow flex flex-col overflow-hidden ${isPreviewMode ? 'bg-gray-50' : ''}`}>
-            {!isPreviewMode ? (
-              <>
-                {/* Quill Toolbar */}
-                <div id="toolbar" className="px-6 py-3 bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-                  <span className="ql-formats">
-                    <select className="ql-header" defaultValue="">
-                      <option value="1">Heading 1</option>
-                      <option value="2">Heading 2</option>
-                      <option value="3">Heading 3</option>
-                      <option value="">Normal</option>
-                    </select>
-                    <button className="ql-bold" />
-                    <button className="ql-italic" />
-                    <button className="ql-underline" />
-                    <button className="ql-strike" />
-                    <button className="ql-blockquote" />
-                    <button className="ql-code-block" />
-                    <button className="ql-link" />
-                    <button className="ql-image" />
-                    <button className="ql-list" value="ordered" />
-                    <button className="ql-list" value="bullet" />
-                    <button className="ql-script" value="sub" />
-                    <button className="ql-script" value="super" />
-                    <button className="ql-indent" value="-1" />
-                    <button className="ql-indent" value="+1" />
-                    <button className="ql-direction" value="rtl" />
-                    <select className="ql-align" />
-                    <select className="ql-color" />
-                    <select className="ql-background" />
-                    <select className="ql-font" />
-                    <select className="ql-size" />
-                  </span>
-                </div>
+           {/* Main editor */}
+           <div className={`flex-grow flex flex-col overflow-hidden ${isPreviewMode?'bg-gray-50':''}`}>
+             {!isPreviewMode?
+             (<>
+              {/* Quill Toolbar */}
+               <div id="toolbar" className="px-6 py-3 bg-white border-b sticky top-0">
+                {/* copy NewBlogPost toolbar groups here */}
+               </div>
 
-                {/* Quill Editor */}
-                <div className="px-6 py-4 overflow-y-auto border-none" style={{ width: '990px' }}>
-                  <ReactQuill
-                    value={content}
-                    onChange={setContent}
-                    modules={modules}
-                    theme="snow"
-                    placeholder="Write your blog content here..."
-                    className="h-full"
-                  />
-                </div>
-              </>
-            ) : (
-              /* Preview Mode */
-              <BlogPreview
-                title={title}
-                content={content}
-                coverImagePreview={coverImagePreview}
-                hashtags={tags}
-                createdAt={createdAt}
-                viewCount={viewCount}
-              />
-            )}
-          </div>
-        </div>
-      </div>
-    </form>
+              {/* Quill Editor */}
+               <div className="flex-grow p-6 bg-gray-50 overflow-y-auto">
+                 <ReactQuill value={content} onChange={setContent} modules={modules} theme="snow" className="h-full min-h-[60vh]" />
+               </div>
+             </>) : (
+               <BlogPreview title={title} content={content} coverImagePreview={coverImagePreview} hashtags={tags} createdAt={createdAt} viewCount={viewCount} />
+             )}
+           </div>
+         </div>
+       </div>
+     </form>
   );
 };
-
-export default UpdateBlogPost;
